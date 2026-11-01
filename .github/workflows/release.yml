@@ -1,0 +1,72 @@
+name: Publish GitHub Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  verify:
+    name: Verify tagged source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Require release commit on protected main ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          python - <<'PY'
+          import os, tomllib, pathlib
+          tag = os.environ['GITHUB_REF_NAME']
+          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          assert tag == f'v{version}', 'Tag must exactly match pyproject version'
+          assert pathlib.Path(f'.github/release-notes/{tag}.md').is_file()
+          PY
+      - name: Regression tests
+        run: |
+          python -m pip install -e .
+          python -m unittest discover -s tests -v
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps -w dist
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verified-wheel
+          path: dist/*.whl
+          if-no-files-found: error
+
+  publish:
+    name: Publish stable release
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: verified-wheel
+          path: dist
+      - name: Publish GitHub Release (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release exists; no overwrite performed.'
+            exit 0
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/*.whl \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "CircuitLock $GITHUB_REF_NAME — SSRF-Aware Egress Admission" \
+            --notes-file ".github/release-notes/$GITHUB_REF_NAME.md" \
+            --latest
