@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=75,<90"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "circuitlock-egress"
+version = "0.1.0"
+description = "Deny-by-default SSRF-aware HTTP(S) egress with DNS socket pinning and auditable policy"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "Felipe Watter"}]
+license = "MIT"
+keywords = ["ssrf", "egress", "appsec", "dns-rebinding", "network-policy", "python"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Programming Language :: Python :: 3 :: Only", "Topic :: Security"]
+dependencies = []
+
+[project.scripts]
+circuitlock = "circuitlock.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

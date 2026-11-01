@@ -1,0 +1,9 @@
+{
+  "allowed_hosts": ["example.org", "api.example.org"],
+  "allowed_ports": [443],
+  "allowed_schemes": ["https"],
+  "max_redirects": 1,
+  "max_response_bytes": 1048576,
+  "timeout_seconds": 10,
+  "max_dns_answers": 16
+}
