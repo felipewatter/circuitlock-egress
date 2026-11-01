@@ -1,0 +1,64 @@
+name: Publish CircuitLock v0.1.0
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-v0.1.0.yml
+permissions:
+  contents: write
+jobs:
+  publish:
+    name: Verify and publish stable GitHub Release
+    if: github.repository == 'felipewatter/circuitlock-egress'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout complete history and release documentation
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up verified Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Verify tested release target and notes
+        env:
+          RELEASE_COMMIT: e86e597ed4d2bf43539ffad49fd746c360b7e94c
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$RELEASE_COMMIT" HEAD
+          test -s .github/release-notes/v0.1.0.md
+          git show "$RELEASE_COMMIT:pyproject.toml" | grep -Fq 'version = "0.1.0"'
+          git show "$RELEASE_COMMIT:.github/workflows/ci.yml" | grep -Fq 'python-version'
+      - name: Run regression suite on release candidate
+        run: |
+          python -m pip install -e .
+          python -m unittest discover -s tests -v
+          python -m compileall -q src
+      - name: Build and check wheel for publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip wheel . --no-deps -w dist
+          test -f dist/circuitlock_egress-0.1.0-py3-none-any.whl
+          python -m pip install dist/circuitlock_egress-0.1.0-py3-none-any.whl --force-reinstall
+          python -m circuitlock --help
+          sha256sum dist/*.whl > dist/SHA256SUMS
+      - name: Publish release with wheel and hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_COMMIT: e86e597ed4d2bf43539ffad49fd746c360b7e94c
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v0.1.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'Release v0.1.0 already published; refusing to overwrite.'
+            exit 0
+          fi
+          gh release create v0.1.0 dist/circuitlock_egress-0.1.0-py3-none-any.whl dist/SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$RELEASE_COMMIT" \
+            --title 'CircuitLock v0.1.0 — SSRF-Aware Egress Admission & DNS-Pinned HTTP(S)' \
+            --notes-file .github/release-notes/v0.1.0.md \
+            --latest
