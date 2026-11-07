@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "circuitlock-egress"
-version = "0.1.0"
+version = "0.1.1"
 description = "Deny-by-default SSRF-aware HTTP(S) egress with DNS socket pinning and auditable policy"
 readme = "README.md"
 requires-python = ">=3.11"
