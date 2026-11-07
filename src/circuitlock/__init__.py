@@ -6,4 +6,4 @@ from .transport import FetchResult, safe_fetch
 
 __all__ = ["CircuitLockError", "PolicyError", "ResolutionError", "TransportError",
            "Policy", "Destination", "resolve_destination", "FetchResult", "safe_fetch"]
-__version__ = "0.1.0"
+__version__ = "0.1.1"
